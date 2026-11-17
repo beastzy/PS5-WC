@@ -20,13 +20,14 @@ case "$root" in
 '*) printf 'The checkout path contains characters unsupported by the session installer.\n' >&2; exit 2 ;;
 esac
 
+# The greeter cannot traverse private home directories. Verify the launcher
+# before installing the entry and let GDM run Exec after the user signs in.
 entry() {
     cat <<EOF
 [Desktop Entry]
 Name=PS5-WC
 Comment=Console-style Wayland compositor
 Exec="$root/start" --session-picker
-TryExec=$root/start
 Type=Application
 EOF
 }
