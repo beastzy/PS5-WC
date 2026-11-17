@@ -6,66 +6,41 @@ nested previews, Wayland and XDG Shell clients, and XWayland games.
 
 ## Install
 
-Keep the checkout in a directory writable by the account that will run the
-session. PS5-WC stores its per-user settings, logs and screenshots there.
-The build needs a current stable Rust toolchain with Cargo, a C linker and
-pkg-config. Cargo resolves Rust dependencies from the checked-in lockfile.
-
-Install the development packages for Wayland, libxkbcommon, libudev, DRM, GBM,
-Mesa EGL/GLES, libinput, libseat, libevdev, Pixman, SDL3, libsndfile, Cairo,
-Pango, GLib/GIO, GdkPixbuf and librsvg. Package names differ by distribution.
-
-On Arch and CachyOS:
+From a checkout writable by your login user, run:
 
 ```sh
-sudo pacman -S --needed base-devel wayland libxkbcommon systemd-libs \
-  libdrm mesa libglvnd libinput seatd libevdev pixman sdl3 libsndfile \
-  cairo pango glib2 gdk-pixbuf2 librsvg xorg-xwayland
+./install.sh
 ```
 
-On Debian 13 and Ubuntu releases with SDL3 development packages:
+The installer uses sudo to install the build libraries, XWayland, and the
+audio, media and terminal tools. It uses your Rust toolchain if it is recent
+enough, or installs stable Rust inside the checkout with rustup. Then it
+builds PS5-WC in release mode with the checked-in lockfile and registers
+**PS5-WC** for both GDM and SDDM. Sign out and choose it in the session
+picker. The compositor runs as your user and stores settings, logs and
+screenshots in the checkout, so keep the checkout at its installed path.
 
-```sh
-sudo apt install build-essential pkg-config libwayland-dev libxkbcommon-dev \
-  libudev-dev libdrm-dev libgbm-dev libegl-dev libgles-dev libinput-dev \
-  libseat-dev libevdev-dev libpixman-1-dev libsdl3-dev libsndfile1-dev \
-  libcairo2-dev libpango1.0-dev libglib2.0-dev libgdk-pixbuf-2.0-dev \
-  librsvg2-dev xwayland
-```
+Automatic dependency installation supports Arch and CachyOS, Fedora, and
+Debian and Ubuntu releases that provide SDL3 development packages. Use
+`./install.sh --dry-run` to see the commands first. Steam is a separate
+application and is required for the Games page.
 
-On Fedora:
+### Manual dependencies and custom session paths
 
-```sh
-sudo dnf install gcc pkgconf-pkg-config wayland-devel libxkbcommon-devel \
-  systemd-devel libdrm-devel mesa-libgbm-devel libglvnd-devel libinput-devel \
-  libseat-devel libevdev-devel pixman-devel SDL3-devel libsndfile-devel \
-  cairo-devel pango-devel glib2-devel gdk-pixbuf2-devel librsvg2-devel \
-  xorg-x11-server-Xwayland
-```
+On other distributions, install a C toolchain, pkg-config, and the
+development packages for Wayland, libxkbcommon, libudev, DRM, libdisplay-info, GBM, EGL/GLES,
+libinput, libseat, libevdev, Pixman, SDL3, libsndfile, Cairo, Pango, GLib/GIO, GTK 3,
+GdkPixbuf and librsvg. Install XWayland, Python 3.9+, `pactl`, `playerctl`,
+and Foot for the corresponding runtime features. A native session needs
+working DRM graphics and a seat managed by logind or seatd. Then run
+`./install.sh --skip-deps` to build and register the session.
 
-Other distributions can provide the same libraries through their package
-manager. A native session requires working DRM graphics and a seat managed
-by logind or seatd. XWayland is needed for X11 applications and Steam games.
-Python 3.9+ and a kernel with pidfd support are used for suspending and
-resuming game processes. Install `pactl` for PulseAudio or PipeWire-Pulse
-controls, `playerctl` for media controls, and Steam for the Games page. Foot
-is optional for the terminal shortcut. Controller access follows the active
-seat's device permissions.
-
-```sh
-./build-rust --locked --release
-./start --version
-./install-session
-```
-
-The installer uses administrator access to place `ps5-wc.desktop` under
-`/usr/share/wayland-sessions`. Log out and choose **PS5-WC** from the
-GDM session picker. To replace the old Console DE Wayland entry and retain
-the session ID GDM already remembers, use
-`./install-session --session-id console-de-wayland` instead. Specify
-`PS5_WC_SESSION_DIR` if your display manager uses a different session
-directory. Run the installer normally as your user so it can locate the
-checkout. The session itself runs as the logged-in user.
+GDM and SDDM both read `/usr/share/wayland-sessions` by default. Set
+`PS5_WC_SESSION_DIR` if your display manager uses a different directory.
+The installer reuses an existing Console DE Wayland session ID when its
+entry already launches PS5-WC from the same checkout. Use `--session-id ID`
+to choose the filename explicitly. To register an existing build without
+rebuilding it, run `./install-session`.
 
 ## Run
 
