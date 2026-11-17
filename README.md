@@ -1,4 +1,4 @@
-# PS5-WC
+# PS5-WC: A PS5-like Wayland Compositor
 
 PS5-WC is a console-style Wayland compositor built in Rust on Smithay 0.7.
 It runs directly on a Linux seat using DRM/KMS and libinput. It also supports
