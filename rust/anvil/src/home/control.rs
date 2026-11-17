@@ -320,7 +320,7 @@ impl Home {
                     layout.y(2.1),
                 )?;
             }
-            let fallback = self.root.join(item.icon());
+            let fallback = self.asset(item.icon());
             let art = if item == Control::Profile {
                 self.art(&self.profile.clone())
                     .or_else(|| self.art(&fallback))

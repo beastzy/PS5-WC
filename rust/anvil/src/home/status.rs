@@ -90,7 +90,7 @@ impl Home {
         if controller {
             self.icon(
                 cr,
-                "status_notice_controller_bg.png",
+                "ui/status_notice_controller_bg.png",
                 (x, y, WIDTH, 144.0 * SCALE),
             )?;
             let (gx, gy) = if battery.is_some() {
@@ -100,13 +100,13 @@ impl Home {
             };
             self.icon(
                 cr,
-                "status_notice_controller_icon.png",
+                "ui/status_notice_controller_icon.png",
                 (x + gx * SCALE, y + gy * SCALE, 70.0 * SCALE, 46.0 * SCALE),
             )?;
             if let Some(battery) = battery {
                 self.icon(
                     cr,
-                    "status_notice_battery_outline.png",
+                    "ui/status_notice_battery_outline.png",
                     (x + 139.0 * SCALE, y + 65.0 * SCALE, 53.0 * SCALE, 34.0 * SCALE),
                 )?;
                 cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -123,12 +123,12 @@ impl Home {
         if microphone {
             self.icon(
                 cr,
-                "status_notice_microphone_bg.png",
+                "ui/status_notice_microphone_bg.png",
                 (x, y, WIDTH, 144.0 * SCALE),
             )?;
             self.icon(
                 cr,
-                "status_notice_microphone_icon.png",
+                "ui/status_notice_microphone_icon.png",
                 (x + 132.0 * SCALE, y + 40.0 * SCALE, 44.0 * SCALE, 64.0 * SCALE),
             )?;
             if self.status.mic != Some(true) {

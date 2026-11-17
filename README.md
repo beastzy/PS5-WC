@@ -1,72 +1,81 @@
 # PS5-WC: A PS5-like Wayland Compositor
 
-PS5-WC is a console-style Wayland compositor built in Rust on Smithay 0.7.
-It runs directly on a Linux seat using DRM/KMS and libinput. It also supports
-nested previews, Wayland and XDG Shell clients, and XWayland games.
+![Linux](https://img.shields.io/badge/platform-Linux-4c9aff)
+![Wayland](https://img.shields.io/badge/session-Wayland-7c4dff)
+![Rust](https://img.shields.io/badge/built_with-Rust-b7410e)
+![GDM and SDDM](https://img.shields.io/badge/login-GDM%20%2F%20SDDM-444c56)
+
+**A controller-first Linux desktop with a console-style dashboard, built into a native Wayland compositor.**
+
+PS5-WC uses Smithay for display, window, and input management. Games, Apps,
+Settings, and Control Center are drawn by the compositor. It can start
+directly from GDM, SDDM, or a Linux TTY, and it also has a nested preview mode.
+
+[Install](#install) · [Demos and screenshots](#demos-and-screenshots) · [Controls](docs/CONTROLS.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+![PS5-WC Games dashboard with the Silksong tile selected](docs/media/games.png)
+
+## Demos and screenshots
+
+[**Watch startup and game browsing**](docs/media/welcome-and-games.mp4) ·
+[**Watch Apps, Settings, and Control Center**](docs/media/apps-and-control-center.mp4)
+
+Both clips were captured from the Rust build in a nested Wayland session.
+The videos show the actual UI transitions and navigation.
+
+| Welcome | Game Library |
+| --- | --- |
+| ![Welcome screen and particles](docs/media/welcome.png) | ![Game Library grid](docs/media/game-library.png) |
+| **Apps** | **Settings** |
+| ![Apps carousel](docs/media/apps.png) | ![Display settings](docs/media/settings.png) |
+
+![Control Center with Home highlighted](docs/media/control-center.png)
 
 ## Install
 
-From a checkout writable by your login user, run:
+Clone the repository into a directory owned by the user who will run PS5-WC.
 
 ```sh
+git clone https://github.com/beastzy/PS5-WC.git
+cd PS5-WC
 ./install.sh
 ```
 
-The installer uses sudo to install the build libraries, XWayland, and the
-audio, media and terminal tools. It uses your Rust toolchain if it is recent
-enough, or installs stable Rust inside the checkout with rustup. Then it
-builds PS5-WC in release mode with the checked-in lockfile and registers
-**PS5-WC** for both GDM and SDDM. Sign out and choose it in the session
-picker. The compositor runs as your user and stores settings, logs and
-screenshots in the checkout, so keep the checkout at its installed path.
+The installer sets up dependencies, builds PS5-WC, and adds **PS5-WC** to
+GDM and SDDM. Sign out and choose it in your login manager. Run
+`./install.sh --dry-run` to preview the installation steps.
 
-Automatic dependency installation supports Arch and CachyOS, Fedora, and
-Debian and Ubuntu releases that provide SDL3 development packages. Use
-`./install.sh --dry-run` to see the commands first. Steam is a separate
-application and is required for the Games page.
+See [Installation and updates](docs/INSTALLATION.md) for supported
+distributions, manual dependencies, and TTY and preview commands.
 
-### Manual dependencies and custom session paths
+## What it includes
 
-On other distributions, install a C toolchain, pkg-config, and the
-development packages for Wayland, libxkbcommon, libudev, DRM, libdisplay-info, GBM, EGL/GLES,
-libinput, libseat, libevdev, Pixman, SDL3, libsndfile, Cairo, Pango, GLib/GIO, GTK 3,
-GdkPixbuf and librsvg. Install XWayland, Python 3.9+, `pactl`, `playerctl`,
-and Foot for the corresponding runtime features. A native session needs
-working DRM graphics and a seat managed by logind or seatd. Then run
-`./install.sh --skip-deps` to build and register the session.
+- Games and Apps carousels, a searchable library, pinning, and keyboard or
+  controller navigation.
+- Steam launch integration, fullscreen game windows, and an artwork
+  transition while games start.
+- Control Center with a window Switcher, audio and microphone controls,
+  media playback controls, and screenshots.
+- Game suspension and audio muting on Home, with Continue and Switcher
+  resuming the same game.
+- Native Wayland and XDG Shell applications, XWayland for X11 applications
+  and games, and DRM/KMS output in a native session.
+- Welcome and carousel animations, menu audio, and accessibility options
+  such as reduced motion and high contrast.
 
-GDM and SDDM both read `/usr/share/wayland-sessions` by default. Set
-`PS5_WC_SESSION_DIR` if your display manager uses a different directory.
-The installer reuses an existing Console DE Wayland session ID when its
-entry already launches PS5-WC from the same checkout. Use `--session-id ID`
-to choose the filename explicitly. To register an existing build without
-rebuilding it, run `./install-session`.
+## Documentation
 
-## Run
+| Guide | What it covers |
+| --- | --- |
+| [Installation and updates](docs/INSTALLATION.md) | Dependencies, session registration, preview, and removal |
+| [Keyboard and controller controls](docs/CONTROLS.md) | Dashboard, Steam games, app switching, and captures |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Missing session, Steam, graphics, audio, and input |
+| [Project layout and development](docs/DEVELOPMENT.md) | Rust source, assets, build commands, and preview rendering |
 
-- `./start --tty` starts the compositor from a local TTY.
-- `./start --nested` opens a preview in the current desktop.
-- `./start --render-home /tmp/ps5-wc-home.png games` renders a preview without
-  starting a session. Use `welcome`, `apps`, `settings` or `control` for other views.
-- `./build-rust --locked` builds a development binary. The launcher prefers
-  a release build when both are present.
+## Source and assets
 
-## Controls
-
-- **Tab / RB** moves through Games, Apps and Settings. **Shift+Tab / LB**
-  moves in reverse. **Up** from the carousel focuses the top bar.
-- **Arrows / D-pad** navigate. **Enter / A** selects. **Esc / B** goes back.
-- **Home** or **Super+Shift+Space** opens Control Center. Tap **PS/Guide**
-  for Control Center, or hold it for Home.
-- **F3** opens Search. **F7** captures a screenshot to `state/screenshots/`.
-- **Super+Enter** launches Foot. **Ctrl+Alt+Delete** or **Super+Q** exits.
-
-Steam starts minimized once XWayland is ready. Home pauses the active game
-and its audio. Continue or Switcher resumes the same game window. Launch
-diagnostics are logged to the session journal. Steam output is kept in
-`state/steam.log`.
-
-## Source
-
-The compositor and its launcher are under `rust/`. The vendored Smithay
-source and Anvil reference code retain their [MIT license](rust/LICENSE.txt).
+PS5-WC is an independent project inspired by the PlayStation interface.
+The vendored [Smithay and Anvil source](rust/LICENSE.txt) retains its MIT
+license. Demo game artwork and bundled console-style media have separate
+rights. Review those assets before redistributing them or making a public
+mirror.

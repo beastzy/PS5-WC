@@ -1439,8 +1439,12 @@ impl Home {
         Ok(())
     }
 
+    fn asset(&self, relative: &str) -> PathBuf {
+        self.root.join("assets").join(relative)
+    }
+
     fn icon(&mut self, cr: &Context, relative: &str, rect: (f64, f64, f64, f64)) -> Result<(), cairo::Error> {
-        if let Some(art) = self.art(&self.root.join(relative)) {
+        if let Some(art) = self.art(&self.asset(relative)) {
             image(cr, &art, rect, false)?;
         }
         Ok(())
@@ -1573,17 +1577,17 @@ pub(crate) fn install_runtime<B: Backend + 'static>(state: &mut AnvilState<B>, a
         "icons/search.png",
         "icons/settings.png",
         "icons/game-library.png",
-        "status_notice_controller_bg.png",
-        "status_notice_controller_icon.png",
-        "status_notice_microphone_bg.png",
-        "status_notice_microphone_icon.png",
-        "status_notice_battery_outline.png",
+        "ui/status_notice_controller_bg.png",
+        "ui/status_notice_controller_icon.png",
+        "ui/status_notice_microphone_bg.png",
+        "ui/status_notice_microphone_icon.png",
+        "ui/status_notice_battery_outline.png",
     ]
     .into_iter()
-    .map(|path| home.root.join(path))
+    .map(|path| home.asset(path))
     .collect::<Vec<_>>();
     files.push(home.profile.clone());
-    files.extend(CONTROL.into_iter().map(|item| home.root.join(item.icon())));
+    files.extend(CONTROL.into_iter().map(|item| home.asset(item.icon())));
     for entry in home
         .games
         .iter()

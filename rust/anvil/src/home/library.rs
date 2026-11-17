@@ -544,6 +544,6 @@ impl Home {
     }
 
     pub(super) fn library_background(&mut self) -> (Option<cairo::ImageSurface>, bool) {
-        (self.art(&self.root.join("icons/ps-background.png")), false)
+        (self.art(&self.asset("icons/ps-background.png")), false)
     }
 }

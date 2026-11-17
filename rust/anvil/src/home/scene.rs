@@ -863,7 +863,7 @@ impl Scene {
             let (cache, base) = if grow > 0.20 { (&mut *large, SELECTED) } else { (&mut *normal, TILE) };
             let icon = match entry.as_ref() {
                 Some(entry) => entry.image.clone(),
-                None => Some(home.root.join("icons/game-library.png")),
+                None => Some(home.asset("icons/game-library.png")),
             };
             let art_ready = icon.as_deref().and_then(|path| home.art(path)).is_some();
             let side = ((base * factor).round() as i32).max(1);

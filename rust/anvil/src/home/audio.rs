@@ -64,7 +64,7 @@ enum Message {
 impl Audio {
     pub(super) fn start(root: &Path) -> Self {
         let (send, receive) = mpsc::channel();
-        let sfx = root.join("sfx");
+        let sfx = root.join("assets/sfx");
         thread::spawn(move || run(sfx, receive));
         Self(send)
     }

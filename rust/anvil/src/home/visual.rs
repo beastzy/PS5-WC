@@ -387,7 +387,7 @@ impl Home {
         if let Some(art) = hero.as_deref().and_then(|path| self.art(path)) {
             (Some(art), true)
         } else {
-            (self.art(&self.root.join("icons/ps-background.png")), false)
+            (self.art(&self.asset("icons/ps-background.png")), false)
         }
     }
 
@@ -419,7 +419,7 @@ impl Home {
     pub(super) fn paint_warm_gradient(&mut self, cr: &Context, layout: Layout) -> Result<(), cairo::Error> {
         cr.set_source_rgb(0.055, 0.055, 0.060);
         cr.paint()?;
-        let path = self.root.join("settings_startup_gradient.png");
+        let path = self.asset("ui/settings_startup_gradient.png");
         let art = self
             .art
             .entry(path.clone())
@@ -754,7 +754,7 @@ pub(super) fn profile(root: &std::path::Path) -> PathBuf {
     ]
     .into_iter()
     .find(|path| path.is_file())
-    .unwrap_or_else(|| root.join("icons/control_center/cc-profile.png"))
+    .unwrap_or_else(|| root.join("assets/icons/control_center/cc-profile.png"))
 }
 
 #[derive(Debug)]

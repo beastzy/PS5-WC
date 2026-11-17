@@ -29,6 +29,11 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
+# Fail before installing packages if the checkout is missing its UI assets.
+for asset in assets/icons/ps-background.png assets/ui/settings_startup_gradient.png assets/sfx/PS5_Home_Menu.mp3; do
+    [ -r "$root/$asset" ] || die "Missing $asset. Use a complete PS5-WC checkout."
+done
+
 [ "$(id -u)" -ne 0 ] || die 'Run ./install.sh as your regular user. It uses sudo for system changes.'
 
 session_dir=${PS5_WC_SESSION_DIR:-/usr/share/wayland-sessions}
