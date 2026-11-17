@@ -17,11 +17,19 @@ directly from GDM, SDDM, or a Linux TTY, and it also has a nested preview mode.
 
 ## Demos and screenshots
 
-[**Watch startup and game browsing**](docs/media/welcome-and-games.mp4) ·
-[**Watch Apps, Settings, and Control Center**](docs/media/apps-and-control-center.mp4)
+These demos were captured from the Rust build in a nested Wayland session.
 
-Both clips were captured from the Rust build in a nested Wayland session.
-The videos show the actual UI transitions and navigation.
+### Welcome and Games
+
+![Animated demo of startup, the Games carousel, and Game Library](docs/media/welcome-and-games.gif)
+
+### Apps, Settings, and Control Center
+
+![Animated demo of the Apps carousel, Settings, and Control Center](docs/media/apps-and-control-center.gif)
+
+Full-resolution MP4s are also available for download
+([Welcome and Games](docs/media/welcome-and-games.mp4) ·
+[Apps, Settings, and Control Center](docs/media/apps-and-control-center.mp4)).
 
 | Welcome | Game Library |
 | --- | --- |
