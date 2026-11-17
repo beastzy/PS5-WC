@@ -1,0 +1,17 @@
+/state/
+/target/
+/.cargo-local/
+/.rustup-local/
+/rust/target/
+__pycache__/
+/app_order
+/game_order
+/gpu
+/scale
+/menu_font_size
+/menu_font_weight
+/reduced_motion
+/high_contrast
+/swap_confirm
+/do_not_disturb
+/profile.png

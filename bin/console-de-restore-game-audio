@@ -1,0 +1,291 @@
+#!/usr/bin/env python3
+"""Guard the game processes and their PulseAudio streams across Home and Continue."""
+import json
+import os
+from pathlib import Path
+import select
+import signal
+import subprocess
+import sys
+import threading
+import time
+
+PROC = Path("/proc")
+terminating = False
+STEAM_PROCESSES = {
+    "steam", "steam.sh", "steamwebhelper", "steam-runtime", "srt-bwrap",
+    "pressure-vessel", "pressure-vessel-wrap", "reaper", "xwayland", "anvil",
+    "systemd", "pipewire", "wireplumber",
+}
+
+
+def pactl(*arguments):
+    return subprocess.check_output(["pactl", *arguments], stderr=subprocess.DEVNULL, timeout=1)
+
+
+def environment(pid):
+    try:
+        return dict(
+            field.split(b"=", 1) for field in (PROC / str(pid) / "environ").read_bytes().split(b"\0")
+            if b"=" in field
+        )
+    except OSError:
+        return {}
+
+
+def steam_ids(env):
+    return {
+        env.get(key) for key in (b"SteamAppId", b"SteamGameId")
+    } - {None, b"", b"0"}
+
+
+def process(directory):
+    try:
+        if directory.stat().st_uid != os.getuid():
+            return None
+        name, _, fields = (directory / "stat").read_text(errors="replace").rpartition(")")
+        fields = fields.split()
+        if len(fields) < 20:
+            return None
+        return name.partition("(")[2].lower(), fields[0], int(fields[1]), fields[19]
+    except (OSError, ValueError):
+        return None
+
+
+def game_processes(window_pid, app_id):
+    processes = {}
+    for directory in PROC.iterdir():
+        if directory.name.isdecimal() and (data := process(directory)):
+            processes[int(directory.name)] = data
+
+    # The compositor, its guard, and any parents may share session variables.
+    excluded = {0, 1}
+    ancestor = os.getpid()
+    while ancestor not in excluded:
+        excluded.add(ancestor)
+        ancestor = processes.get(ancestor, ("", "", 1, ""))[2]
+
+    displays = {
+        key: os.environb[key] for key in (b"DISPLAY", b"WAYLAND_DISPLAY") if key in os.environb
+    }
+    candidates = {window_pid} if window_pid in processes else set()
+    for pid, (name, state, _, _) in processes.items():
+        if pid in excluded or name in STEAM_PROCESSES or state in "ZTtX":
+            continue
+        env = environment(pid)
+        if any(env.get(key) == value for key, value in displays.items()) and app_id in steam_ids(env):
+            candidates.add(pid)
+
+    # Find children even if they do not retain the Steam environment.
+    members = {}
+    for pid, (name, state, _, started) in processes.items():
+        if pid in excluded or name in STEAM_PROCESSES or state in "ZTtX":
+            continue
+        ancestor = pid
+        for depth in range(64):
+            if ancestor in candidates:
+                # A different, explicit Steam title is never part of this game.
+                ids = steam_ids(environment(pid))
+                if pid == window_pid or not ids or app_id in ids:
+                    members[pid] = (started, depth)
+                break
+            ancestor = processes.get(ancestor, ("", "", 1, ""))[2]
+            if ancestor <= 1:
+                break
+    return sorted(members.items(), key=lambda member: member[1][1])
+
+
+class Game:
+    def __init__(self, app_id, title, pid):
+        self.app_id = app_id.encode()
+        self.title = normalize(title)
+        self.window_pid = pid
+        self.root_fd = None
+        if pid > 1:
+            try:
+                self.root_fd = os.pidfd_open(pid)
+            except (OSError, AttributeError):
+                pass
+        self.stopped = {}
+        self.members = {}
+        self.was_parked = False
+        self.mode = b"R"
+        self.changed = threading.Condition()
+        self.finished = False
+
+    def same_window_process(self):
+        return self.root_fd is not None and not select.select([self.root_fd], [], [], 0)[0]
+
+    def set_mode(self, mode):
+        with self.changed:
+            self.mode = mode
+            self.was_parked |= mode == b"P"
+            self.changed.notify_all()
+
+    def park(self):
+        if self.stopped:
+            return
+        window_pid = self.window_pid if self.same_window_process() else 0
+        # Freeze parents first to prevent them from spawning new children as
+        # their descendants are being stopped.
+        members = {}
+        for pid, (started, _) in game_processes(window_pid, self.app_id):
+            fd = None
+            try:
+                fd = os.dup(self.root_fd) if pid == window_pid else os.pidfd_open(pid)
+                info = process(PROC / str(pid))
+                if not info or info[3] != started or info[1] in "ZTtX":
+                    continue
+                signal.pidfd_send_signal(fd, signal.SIGSTOP)
+                self.stopped[pid] = fd
+                members[pid] = started
+                fd = None
+            except (OSError, AttributeError):
+                continue
+            finally:
+                if fd is not None:
+                    os.close(fd)
+        with self.changed:
+            self.members = members
+            self.changed.notify_all()
+        if self.stopped:
+            print(f"Paused {len(self.stopped)} game process(es)", file=sys.stderr, flush=True)
+
+    def thaw(self):
+        for fd in reversed(list(self.stopped.values())):
+            try:
+                signal.pidfd_send_signal(fd, signal.SIGCONT)
+            except OSError:
+                pass
+            finally:
+                os.close(fd)
+        if self.stopped:
+            print("Resumed game processes", file=sys.stderr, flush=True)
+        self.stopped.clear()
+
+    def run(self):
+        worker = threading.Thread(target=self.audio)
+        worker.start()
+        try:
+            while not terminating:
+                if not select.select([sys.stdin], [], [], 0.25)[0]:
+                    continue
+                commands = os.read(sys.stdin.fileno(), 4096)
+                if not commands:
+                    break
+                mode = commands[-1:]
+                if mode not in (b"P", b"R", b"C"):
+                    continue
+                self.set_mode(mode)
+                if mode == b"P":
+                    self.park()
+                else:
+                    # A polite Close still needs the client to process events.
+                    self.thaw()
+        finally:
+            self.thaw()
+            with self.changed:
+                self.finished = True
+                self.changed.notify_all()
+            worker.join()
+            if self.root_fd is not None:
+                os.close(self.root_fd)
+
+    def stream_belongs_to_game(self, properties, members, recovering):
+        pid = str(properties.get("application.process.id", ""))
+        if pid.isdecimal():
+            pid = int(pid)
+            if pid == self.window_pid and self.same_window_process():
+                return True
+            if pid in members:
+                info = process(PROC / str(pid))
+                if info is not None and info[3] == members[pid]:
+                    return True
+            env = environment(pid)
+            ids = steam_ids(env)
+            if ids:
+                displays = (b"DISPLAY", b"WAYLAND_DISPLAY")
+                same_display = any(env.get(key) == os.environb.get(key) for key in displays if key in os.environb)
+                return self.app_id in ids and same_display
+        app_id = self.app_id.decode()
+        application = str(properties.get("application.id", "")).casefold()
+        if application in (f"steam_app_{app_id}", f"steam_appid_{app_id}"):
+            return True
+        return recovering and bool(self.title) and any(
+            normalize(str(properties.get(key, ""))) == self.title
+            for key in ("application.name", "application.process.binary", "application.id")
+        )
+
+    def audio(self):
+        muted = set()
+        recovered = set()
+        recover_until = time.monotonic() + 40
+        cleanup_until = None
+        while True:
+            with self.changed:
+                mode, members, finished = self.mode, self.members, self.finished
+                if self.was_parked:
+                    recover_until = 0
+            parked = mode in (b"P", b"C") and not finished
+            recovering = time.monotonic() < recover_until and not finished
+            if parked or muted or recovering:
+                try:
+                    streams = json.loads(pactl("--format=json", "list", "sink-inputs"))
+                    existing = set()
+                    for stream in streams:
+                        properties = stream.get("properties", {})
+                        index = str(stream["index"])
+                        identity = (index, properties.get("object.serial"), stream.get("client"), properties.get("application.process.id"))
+                        existing.add(identity)
+                        # Observe rapid Home/Continue changes before writing.
+                        with self.changed:
+                            still_parked = self.mode in (b"P", b"C") and not self.finished
+                        if parked != still_parked:
+                            break
+                        if identity in muted:
+                            if not parked:
+                                if stream.get("mute"):
+                                    pactl("set-sink-input-mute", index, "0")
+                                muted.discard(identity)
+                        elif self.stream_belongs_to_game(properties, members, recovering):
+                            if parked and not stream.get("mute"):
+                                pactl("set-sink-input-mute", index, "1")
+                                muted.add(identity)
+                            elif recovering and identity not in recovered:
+                                volumes = stream.get("volume", {})
+                                if volumes and all(channel.get("value") == 0 for channel in volumes.values()):
+                                    pactl("set-sink-input-volume", index, "100%")
+                                if stream.get("mute"):
+                                    pactl("set-sink-input-mute", index, "0")
+                                recovered.add(identity)
+                    else:
+                        muted.intersection_update(existing)
+                except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+                    pass
+            with self.changed:
+                if finished:
+                    if not muted:
+                        break
+                    if cleanup_until is None:
+                        cleanup_until = time.monotonic() + 1
+                    if time.monotonic() >= cleanup_until:
+                        break
+                    self.changed.wait(timeout=0.15)
+                elif self.mode == mode and not self.finished:
+                    self.changed.wait(timeout=0.2 if parked or recovering or muted else None)
+
+
+def normalize(name):
+    return "".join(letter for letter in name.casefold().removesuffix(".exe") if letter.isalnum())
+
+
+def shutdown(_signum, _frame):
+    global terminating
+    terminating = True
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 4 and sys.argv[1].isascii() and sys.argv[1].isdecimal():
+        signal.signal(signal.SIGTERM, shutdown)
+        signal.signal(signal.SIGINT, shutdown)
+        Game(sys.argv[1], sys.argv[2], int(sys.argv[3] or "0")).run()

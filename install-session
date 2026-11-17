@@ -1,0 +1,53 @@
+#!/bin/sh
+# Register a writable user checkout as a system-wide session choice.
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)
+id=ps5-wc
+if [ "${1:-}" = --session-id ]; then
+    [ "$#" -ge 2 ] || { printf 'Missing session ID.\n' >&2; exit 2; }
+    id=$2
+    shift 2
+fi
+case "$id" in
+    ''|*[!a-zA-Z0-9_-]*) printf 'Invalid session ID.\n' >&2; exit 2 ;;
+esac
+
+# Desktop Exec expands percent codes and interprets backslashes twice.
+# Accept paths with spaces, while rejecting reserved characters.
+case "$root" in
+    *'%'*|*'"'*|*'\'*|*'`'*|*'$'*|*'
+'*) printf 'The checkout path contains characters unsupported by the session installer.\n' >&2; exit 2 ;;
+esac
+
+entry() {
+    cat <<EOF
+[Desktop Entry]
+Name=PS5-WC
+Comment=Console-style Wayland compositor
+Exec="$root/start" --session-picker
+TryExec=$root/start
+Type=Application
+EOF
+}
+
+if [ "${1:-}" = --print ] && [ "$#" -eq 1 ]; then
+    entry
+    exit 0
+fi
+[ "$#" -eq 0 ] || { printf 'Usage: %s [--session-id ID] [--print]\n' "$0" >&2; exit 2; }
+
+"$root/start" --version
+desktop=$(mktemp -d)
+trap 'rm -f -- "$desktop/$id.desktop"; rmdir -- "$desktop"' 0
+entry > "$desktop/$id.desktop"
+if command -v desktop-file-validate >/dev/null 2>&1; then
+    desktop-file-validate "$desktop/$id.desktop"
+fi
+session_dir=${PS5_WC_SESSION_DIR:-/usr/share/wayland-sessions}
+if [ "$(id -u)" = 0 ]; then
+    install -Dm644 -- "$desktop/$id.desktop" "$session_dir/$id.desktop"
+else
+    sudo install -Dm644 -- "$desktop/$id.desktop" "$session_dir/$id.desktop"
+fi
+printf 'Registered PS5-WC in %s/%s.desktop\n' "$session_dir" "$id"

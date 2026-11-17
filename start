@@ -1,0 +1,54 @@
+#!/bin/sh
+set -eu
+die() { printf '%s\n' "$*" >&2; exit 1; }
+
+project=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)
+compositor="$project/rust/target/debug/ps5-wc"
+if [ -x "$project/rust/target/release/ps5-wc" ]; then compositor="$project/rust/target/release/ps5-wc"; fi
+export CONSOLE_DE_WAYLAND_ROOT="$project" PATH="$project/bin:$PATH"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share}"
+
+mode=${1:---nested}
+if [ "$#" -gt 0 ]; then shift; fi
+case "$mode" in
+    --help|-h)
+        printf '%s\n' 'Usage: start [--nested | --tty | --session-picker | --render-home PATH [welcome|games|apps|settings|control] | --version]'
+        exit 0 ;;
+    --render-home|--version)
+        [ -x "$compositor" ] || die 'Build PS5-WC first with ./build-rust --locked.'
+        exec "$compositor" "$mode" "$@"
+        ;;
+esac
+[ -x "$compositor" ] || die 'Build PS5-WC first with ./build-rust --locked.'
+[ "$#" -eq 0 ] || die 'Unexpected arguments. Run start --help.'
+[ "$(id -u)" -ne 0 ] || die 'Run the compositor as your session user.'
+[ -n "${XDG_RUNTIME_DIR:-}" ] && [ -O "$XDG_RUNTIME_DIR" ] && [ -w "$XDG_RUNTIME_DIR" ] ||
+    die 'An owned and writable XDG_RUNTIME_DIR is required.'
+
+case "$mode" in
+    --nested)
+        [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${DISPLAY:-}" ] ||
+            die 'Preview requires a running Wayland or X11 desktop.'
+        backend=--winit
+        export CONSOLE_DE_WAYLAND_MODE=nested
+        ;;
+    --tty|--session-picker)
+        # GDM starts an existing logind seat session without a TTY on stdin.
+        if [ "$mode" = --tty ]; then
+            case "$(tty 2>/dev/null || :)" in
+                /dev/tty[0-9]*) ;;
+                *) die 'Log in at a local Linux TTY, or use --nested from your desktop.' ;;
+            esac
+        fi
+        unset DISPLAY WAYLAND_DISPLAY
+        backend=--tty-udev
+        export CONSOLE_DE_WAYLAND_MODE=native
+        ;;
+    *) die 'Unknown option. Run start --help.' ;;
+esac
+unset WAYLAND_SOCKET
+export XDG_CURRENT_DESKTOP=PS5-WC XDG_SESSION_DESKTOP=PS5-WC XDG_SESSION_TYPE=wayland
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+fi
+exec "$compositor" "$backend"

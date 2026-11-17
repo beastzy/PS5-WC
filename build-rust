@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)
+if [ -x "$root/.cargo-local/bin/cargo" ]; then
+    export CARGO_HOME="$root/.cargo-local" RUSTUP_HOME="$root/.rustup-local"
+    export PATH="$CARGO_HOME/bin:$PATH"
+fi
+exec cargo build --manifest-path "$root/rust/Cargo.toml" -p anvil "$@"
