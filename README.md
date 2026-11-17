@@ -56,6 +56,12 @@ GDM and SDDM. Sign out and choose it in your login manager. Run
 See [Installation and updates](docs/INSTALLATION.md) for supported
 distributions, manual dependencies, and TTY and preview commands.
 
+### Uninstall
+
+Run `./uninstall.sh` from the installed checkout to remove its session
+entries and compiled launchers. Use `./uninstall.sh --dry-run` to preview
+the changes.
+
 ## What it includes
 
 - Games and Apps carousels, a searchable library, pinning, and keyboard or

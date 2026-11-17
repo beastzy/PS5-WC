@@ -13,6 +13,7 @@ build-rust     Cargo build wrapper
 install.sh     Dependency setup, build, and session registration
 install-session
                GDM/SDDM desktop-entry installer
+uninstall.sh   Remove this checkout’s session entries and launchers
 start          Native, nested, and offline preview launcher
 ```
 

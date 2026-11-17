@@ -50,7 +50,15 @@ desktop, use `./start --nested`.
 Pull the new commits and run `./install.sh --skip-deps`. Run the installer
 without that option when the update requires new packages.
 
-To remove the login entry, delete the PS5-WC desktop file from your session
-directory using administrator privileges. Check the filename from your
-installer output before removing it. Your settings and captures stay in
-the checkout, with captures under `state/screenshots/`.
+From another desktop or a local TTY, run this in the installed checkout:
+
+```sh
+./uninstall.sh
+```
+
+The uninstaller removes the session entries that point to this checkout
+and its compiled debug and release launchers. It uses sudo for the session
+files. Source, settings, captures, Steam data, and system packages stay in
+place. Use `./uninstall.sh --dry-run` to preview the files it will remove.
+If you used a custom `PS5_WC_SESSION_DIR` to install, use the same setting
+when uninstalling.
